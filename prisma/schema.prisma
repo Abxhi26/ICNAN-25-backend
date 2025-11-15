@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// STAGE 1: Participants - No login access, just data from Excel
+model Participant {
+  id                Int       @id @default(autoincrement())
+  referenceNo       String    @unique
+  prefix            String?
+  name              String
+  gender            String?
+  designation       String?
+  institution       String?
+  instituteAddress  String?
+  state             String?
+  country           String?
+  email             String    @unique
+  mobileNo          String?
+  registeredCategory String?
+  paperId           String?
+  registrationDate  String?
+  transactionId     String?
+  invoiceNo         String?
+  amountPaid        Float?
+  barcode           String?   @unique
+  createdAt         DateTime  @default(now())
+  entries           Entry[]
+}
+
+// STAGE 1: Staff - Admin & Coordinators with login access
+model Staff {
+  id          Int      @id @default(autoincrement())
+  staffId     String   @unique
+  name        String
+  email       String   @unique
+  password    String
+  role        StaffRole @default(COORDINATOR)
+  createdAt   DateTime @default(now())
+}
+
+// STAGE 1: Entry tracking
+model Entry {
+  id            Int         @id @default(autoincrement())
+  participantId Int
+  participant   Participant @relation(fields: [participantId], references: [id])
+  venue         String
+  timestamp     DateTime    @default(now())
+  staffId       String
+  
+  @@index([participantId])
+  @@index([venue])
+}
+
+// STAGE 2: Papers/Research Submissions
+model Paper {
+  id                          Int      @id @default(autoincrement())
+  paperId                     String   @unique
+  created                     String?
+  lastModified                String?
+  paperTitle                  String
+  abstract                    String?
+  primaryContactAuthorName    String
+  primaryContactAuthorEmail   String
+  authors                     String?
+  authorNames                 String?
+  authorEmails                String?
+  trackName                   String?
+  primarySubjectArea          String?
+  secondarySubjectAreas       String?
+  status                      String?
+  files                       String?
+  numberOfFiles               Int?     @default(0)
+  supplementaryFiles          String?
+  numberOfSupplementaryFiles  Int?     @default(0)
+  reviewers                   String?
+  reviewerEmails              String?
+  metaReviewers               String?
+  metaReviewerEmails          String?
+  seniorMetaReviewers         String?
+  seniorMetaReviewerEmails    String?
+  conflicts                   Int?     @default(0)
+  assigned                    Int?     @default(0)
+  completed                   Int?     @default(0)
+  percentCompleted            Int?     @default(0)
+  bids                        Int?     @default(0)
+  discussion                  String?
+  requestedForAuthorFeedback  String?
+  authorFeedbackSubmitted     String?
+  requestedForCameraReady     String?
+  cameraReadySubmitted        String?
+  requestedForPresentation    String?
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+  
+  @@index([paperId])
+  @@index([primaryContactAuthorEmail])
+  @@index([trackName])
+  @@index([status])
+}
+
+enum StaffRole {
+  ADMIN
+  COORDINATOR
+}
