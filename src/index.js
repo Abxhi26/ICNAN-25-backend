@@ -1,7 +1,6 @@
 // backend/src/index.js
-// Smart Entry Validation System - main server entry
-// Assumes route modules exist: ./routes/auth, ./routes/participants, ./routes/entries
-// and middleware ./middleware/auth
+// Smart Entry Validation System - main server entry with robust CORS
+'use strict';
 
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
@@ -13,110 +12,130 @@ require('dotenv').config();
 const prisma = new PrismaClient();
 const app = express();
 
-// Config
+// CONFIG
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
 const UPLOAD_DIR = path.join(__dirname, '..', 'uploads'); // backend/uploads
 const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES) || 10 * 1024 * 1024;
 
-// Ensure upload dir exists
+// Ensure uploads directory exists
 if (!fs.existsSync(UPLOAD_DIR)) {
     fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
-// Allowed origins (comma separated env var)
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+// ----- CORS configuration (robust) -----
+// ALLOWED_ORIGINS: comma-separated list of exact origins, e.g.
+// ALLOWED_ORIGINS=https://icnan25-frontend.vercel.app,http://localhost:5173
+const rawAllowed = (process.env.ALLOWED_ORIGINS || '')
     .split(',')
     .map(s => s.trim())
     .filter(Boolean);
 
-// sensible default origins for local dev (will be used only if none supplied)
-if (allowedOrigins.length === 0) {
-    allowedOrigins.push(
-        'http://localhost:5173',
-        'http://localhost:3000'
-    );
-}
+console.log('CORS: allowed origins:', rawAllowed.length ? rawAllowed : '[none configured]');
 
-// CORS
-app.use(cors({
-    origin: (origin, callback) => {
-        // allow non-browser tools (no origin)
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) return callback(null, true);
-        console.warn('Blocked CORS origin:', origin);
-        return callback(new Error('CORS not allowed by server'), false);
+// cors options
+const corsOptions = {
+    origin: function (origin, callback) {
+        // allow non-browser requests like curl/postman (no origin)
+        if (!origin) {
+            return callback(null, true);
+        }
+
+        // if no allowed origins configured, deny by default (safer)
+        if (!rawAllowed.length) {
+            console.warn('CORS: no allowed origins configured; blocking origin:', origin);
+            return callback(new Error('CORS not allowed'), false);
+        }
+
+        // exact match required
+        if (rawAllowed.includes(origin)) {
+            return callback(null, true);
+        }
+
+        console.warn('CORS: blocked origin:', origin);
+        return callback(new Error('CORS not allowed'), false);
     },
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-    credentials: true
-}));
+    credentials: true,
+    preflightContinue: false,
+    optionsSuccessStatus: 204
+};
 
-// Allow preflight for everything
-app.options('*', (req, res) => res.sendStatus(204));
+// Apply CORS middleware
+app.use(cors(corsOptions));
 
-// Body parsers
+// Make sure Express will respond to OPTIONS for all routes (preflight)
+app.options('*', cors(corsOptions));
+
+// ----- Body parsers -----
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Attach prisma client to every request for route modules to consume
+// Attach prisma to req
 app.use((req, res, next) => {
     req.prisma = prisma;
     next();
 });
 
-// Serve uploaded files (if needed) - optional, careful in prod
+// Serve uploads if you want (optional)
 app.use('/uploads', express.static(UPLOAD_DIR));
 
-// Mount routes (these modules should export an express router)
+// ----- Route mounting (make sure these files exist) -----
+// If any of these files are missing the server will log a helpful error
 try {
-    const authRoutes = require('./routes/auth');
+    const authRoutes = require('./routes/auth'); // expected to export router
     const participantRoutes = require('./routes/participants');
     const entriesRoutes = require('./routes/entries');
 
     app.use('/auth', authRoutes);
     app.use('/participants', participantRoutes);
     app.use('/entries', entriesRoutes);
+
+    console.log('Routes mounted: /auth, /participants, /entries');
 } catch (err) {
-    console.error('Failed to mount some routes. Make sure route files exist and export an express router.', err);
-    // don't exit - continue so health checks still respond and startup logs help debugging
+    console.error('Failed to mount routes. Ensure ./routes/auth.js, ./routes/participants.js, ./routes/entries.js exist and export an express router.', err);
 }
 
-// Basic health / info
+// Basic health endpoint
 app.get('/', (req, res) => {
     res.json({
-        message: 'Smart Entry Validation API (Stage 1)',
-        uptime: process.uptime(),
-        timestamp: new Date().toISOString()
+        message: 'Smart Entry Validation API is running (Stage 1)',
+        timestamp: new Date().toISOString(),
+        allowedOrigins: rawAllowed
     });
 });
 
-// Generic 404 for unknown api routes
+// Generic 404 handler for unknown API routes
 app.use((req, res, next) => {
-    if (req.path.startsWith('/api') || req.path.startsWith('/auth') || req.path.startsWith('/participants') || req.path.startsWith('/entries')) {
+    if (req.path.startsWith('/auth') || req.path.startsWith('/participants') || req.path.startsWith('/entries')) {
         return res.status(404).json({ error: 'Not Found' });
     }
     next();
 });
 
-// Generic error handler (so thrown errors return JSON)
+// Generic error handler (sends JSON)
 app.use((err, req, res, next) => {
-    console.error('Unhandled error:', err);
+    // If CORS blocked, the cors middleware passes an Error with message 'CORS not allowed'
+    if (err && err.message && err.message.includes('CORS')) {
+        return res.status(403).json({ error: 'CORS not allowed', detail: err.message });
+    }
+
+    console.error('Unhandled error:', err && (err.stack || err));
     if (res.headersSent) return next(err);
     res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
 });
 
-// Start server and connect to DB
+// ----- Start server and connect to DB -----
 let serverInstance;
 (async function start() {
     try {
         await prisma.$connect();
         serverInstance = app.listen(PORT, () => {
             console.log(`✅ Smart Entry Validation API running on port ${PORT}`);
-            console.log(` - Uploads dir: ${UPLOAD_DIR}`);
-            console.log(` - Allowed origins: ${allowedOrigins.join(', ')}`);
+            console.log(` - Uploads directory: ${UPLOAD_DIR}`);
+            console.log(` - Allowed origins: ${rawAllowed.length ? rawAllowed.join(', ') : '[none]'}`);
         });
 
-        // handle uncaught exceptions/rejections to attempt graceful shutdown
         process.on('unhandledRejection', (reason) => {
             console.error('Unhandled Rejection:', reason);
         });
@@ -129,14 +148,12 @@ let serverInstance;
     }
 })();
 
-// Graceful shutdown
+// ----- Graceful shutdown -----
 async function shutdown(signal) {
     try {
         console.log(`\nReceived ${signal || 'signal'} - shutting down...`);
         if (serverInstance && serverInstance.close) {
-            serverInstance.close(() => {
-                console.log('HTTP server closed');
-            });
+            serverInstance.close(() => console.log('HTTP server closed'));
         }
         await prisma.$disconnect();
         console.log('Prisma disconnected');
