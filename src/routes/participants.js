@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const { requireRole } = require('../middleware/auth');
+const { authenticateToken, requireRole } = require('../middleware/auth');
 const multer = require('multer');
 const xlsx = require('xlsx');
 const fs = require('fs');
@@ -49,7 +50,7 @@ router.get('/', requireRole('ADMIN'), async (req, res) => {
     }
 });
 
-router.post('/upload-excel', requireRole('ADMIN'), upload.single('file'), async (req, res) => {
+router.post('/upload-excel',authenticateToken, requireRole('ADMIN'), upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     try {
         const workbook = xlsx.readFile(req.file.path);
