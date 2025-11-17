@@ -6,8 +6,6 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
-// STAGE 1: Participants - No login access, just data from Excel
 model Participant {
   id                Int       @id @default(autoincrement())
   referenceNo       String    @unique
@@ -32,7 +30,6 @@ model Participant {
   entries           Entry[]
 }
 
-// STAGE 1: Staff - Admin & Coordinators with login access
 model Staff {
   id          Int      @id @default(autoincrement())
   staffId     String   @unique
@@ -43,7 +40,6 @@ model Staff {
   createdAt   DateTime @default(now())
 }
 
-// STAGE 1: Entry tracking
 model Entry {
   id            Int         @id @default(autoincrement())
   participantId Int
@@ -54,53 +50,6 @@ model Entry {
   
   @@index([participantId])
   @@index([venue])
-}
-
-// STAGE 2: Papers/Research Submissions
-model Paper {
-  id                          Int      @id @default(autoincrement())
-  paperId                     String   @unique
-  created                     String?
-  lastModified                String?
-  paperTitle                  String
-  abstract                    String?
-  primaryContactAuthorName    String
-  primaryContactAuthorEmail   String
-  authors                     String?
-  authorNames                 String?
-  authorEmails                String?
-  trackName                   String?
-  primarySubjectArea          String?
-  secondarySubjectAreas       String?
-  status                      String?
-  files                       String?
-  numberOfFiles               Int?     @default(0)
-  supplementaryFiles          String?
-  numberOfSupplementaryFiles  Int?     @default(0)
-  reviewers                   String?
-  reviewerEmails              String?
-  metaReviewers               String?
-  metaReviewerEmails          String?
-  seniorMetaReviewers         String?
-  seniorMetaReviewerEmails    String?
-  conflicts                   Int?     @default(0)
-  assigned                    Int?     @default(0)
-  completed                   Int?     @default(0)
-  percentCompleted            Int?     @default(0)
-  bids                        Int?     @default(0)
-  discussion                  String?
-  requestedForAuthorFeedback  String?
-  authorFeedbackSubmitted     String?
-  requestedForCameraReady     String?
-  cameraReadySubmitted        String?
-  requestedForPresentation    String?
-  createdAt                   DateTime @default(now())
-  updatedAt                   DateTime @updatedAt
-  
-  @@index([paperId])
-  @@index([primaryContactAuthorEmail])
-  @@index([trackName])
-  @@index([status])
 }
 
 enum StaffRole {

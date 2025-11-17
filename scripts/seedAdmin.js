@@ -1,84 +1,43 @@
-// backend/scripts/seedStaff.js
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
 
-const adminUsers = [
-    {
-        staffId: 'ADMIN001',
-        name: 'Admin User',
-        email: 'admin@event.com',
-        password: 'admin123',
-        role: 'ADMIN'
-    }
-];
+async function main() {
+    const password = await bcrypt.hash('adminpassword', 10); // change password as needed
 
-const coordinators = [
-    {
-        staffId: 'COORD001',
-        name: 'John Doe - Main Hall',
-        email: 'john.coord@event.com',
-        password: 'coord123',
-        role: 'COORDINATOR'
-    },
-    {
-        staffId: 'COORD002',
-        name: 'Jane Smith - Registration',
-        email: 'jane.coord@event.com',
-        password: 'coord123',
-        role: 'COORDINATOR'
-    },
-    {
-        staffId: 'COORD003',
-        name: 'Mike Johnson - Security',
-        email: 'mike.coord@event.com',
-        password: 'coord123',
-        role: 'COORDINATOR'
-    }
-];
+    // Admin account
+    await prisma.staff.upsert({
+        where: { staffId: 'ADMIN01' },
+        update: {},
+        create: {
+            staffId: 'ADMIN01',
+            name: 'Conference Admin',
+            email: 'admin@conference.com',
+            password,
+            role: 'ADMIN',
+        },
+    });
 
-const allStaff = [...adminUsers, ...coordinators];
+    // Example coordinator account
+    await prisma.staff.upsert({
+        where: { staffId: 'STAFF01' },
+        update: {},
+        create: {
+            staffId: 'STAFF01',
+            name: 'Staff User',
+            email: 'coordinator@conference.com',
+            password: await bcrypt.hash('staffpassword', 10),
+            role: 'COORDINATOR',
+        },
+    });
 
-async function seedStaff() {
-    console.log('🔄 Connecting to database and creating Admin + Coordinators...\n');
-    await prisma.$connect();
-
-    try {
-        for (const staffData of allStaff) {
-            const hashedPassword = await bcrypt.hash(staffData.password, 10);
-
-            const staff = await prisma.staff.upsert({
-                where: { staffId: staffData.staffId },
-                update: {
-                    name: staffData.name,
-                    email: staffData.email,
-                    password: hashedPassword,
-                    role: staffData.role
-                },
-                create: {
-                    staffId: staffData.staffId,
-                    name: staffData.name,
-                    email: staffData.email,
-                    password: hashedPassword,
-                    role: staffData.role
-                }
-            });
-
-            // only show password when not in production
-            console.log(`✅ ${staff.role}: ${staff.name}`);
-            console.log(`   Staff ID: ${staff.staffId}`);
-            console.log(`   Email: ${staff.email}`);
-            console.log(`   Password: ${process.env.NODE_ENV === 'production' ? '[hidden]' : staffData.password}\n`);
-        }
-
-        console.log('✅ All staff accounts processed successfully!');
-    } catch (err) {
-        console.error('❌ Seed failed:', err);
-        process.exitCode = 1;
-    } finally {
-        await prisma.$disconnect();
-    }
+    console.log('✅ Seeded admin and coordinator users.');
 }
 
-seedStaff();
+main()
+    .catch((e) => {
+        console.error(e);
+        process.exit(1);
+    })
+    .finally(() => prisma.$disconnect());
