@@ -14,7 +14,7 @@ const prisma = new PrismaClient();
 const app = express();
 
 app.use(cors({
-    origin:'https://icnan25-frontend.vercel.app/', // CHANGE to your deployed frontend domain
+    origin:'https://icnan25-frontend.vercel.app', // CHANGE to your deployed frontend domain
     credentials: true,
 }));
 app.use(express.json());
