@@ -8,7 +8,7 @@ const fs = require('fs');
 const cors = require('cors');
 require('dotenv').config();
 
-const { authenticateToken, requireRole } = require('../middleware/auth'); // Adjust this path as per your structure
+const { authenticateToken, requireRole } = require('smart-entry-validation-system\backend\src\middleware\auth.js'); // Adjust this path as per your structure
 
 const prisma = new PrismaClient();
 const app = express();
