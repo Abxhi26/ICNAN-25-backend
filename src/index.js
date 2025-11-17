@@ -7,14 +7,14 @@ const xlsx = require('xlsx');
 const fs = require('fs');
 const cors = require('cors');
 require('dotenv').config();
-
 const { authenticateToken, requireRole } = require('./middleware/auth.js');
+
 
 const prisma = new PrismaClient();
 const app = express();
 
 app.use(cors({
-    origin: 'https://icnan25-frontend.vercel.app/', // CHANGE to your deployed frontend domain
+    origin:'https://icnan25-frontend.vercel.app/', // CHANGE to your deployed frontend domain
     credentials: true,
 }));
 app.use(express.json());
