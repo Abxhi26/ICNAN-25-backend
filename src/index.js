@@ -8,6 +8,8 @@ const fs = require('fs');
 const cors = require('cors');
 require('dotenv').config();
 const { authenticateToken, requireRole } = require('./middleware/auth.js');
+const seedAdmin = require('../scripts/seedAdmin');
+
 
 
 const prisma = new PrismaClient();
@@ -18,6 +20,18 @@ app.use(cors({
     credentials: true,
 }));
 app.use(express.json());
+
+// TEMPORARY SEED ROUTE – remove after running once
+app.post('/internal/run-seed-admin', async (req, res) => {
+    try {
+        await seedAdmin();
+        res.json({ ok: true, message: 'Seeded admin users' });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Seed failed' });
+    }
+});
+
 
 const upload = multer({ dest: 'uploads/' });
 
