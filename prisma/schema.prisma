@@ -26,6 +26,7 @@ model Participant {
   invoiceNo         String?
   amountPaid        Float?
   barcode           String?   @unique
+  
   createdAt         DateTime  @default(now())
   entries           Entry[]
 }
