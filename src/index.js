@@ -216,28 +216,32 @@ app.get('/entries/:barcode', authenticateToken, async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-app.get('/entries/all', authenticateToken, requireRole('ADMIN'), async (req, res) => {
+// SIMPLE: return all entries with participant data (for debugging / direct logs)
+app.get('/entries/simple-logs', authenticateToken, requireRole('ADMIN'), async (req, res) => {
     try {
-        const { venue, date } = req.query;
-        let whereClause = {};
-        if (venue && venue !== 'all') whereClause.venue = venue;
-        if (date) {
-            const startOfDay = new Date(date); startOfDay.setHours(0, 0, 0, 0);
-            const endOfDay = new Date(date); endOfDay.setHours(23, 59, 59, 999);
-            whereClause.timestamp = { gte: startOfDay, lte: endOfDay };
-        }
         const entries = await prisma.entry.findMany({
-            where: whereClause,
             include: {
-                participant: { select: { referenceNo: true, name: true, email: true, mobileNo: true, institution: true, registeredCategory: true, barcode: true } }
+                participant: {
+                    select: {
+                        referenceNo: true,
+                        name: true,
+                        email: true,
+                        mobileNo: true,
+                        institution: true,
+                        registeredCategory: true,
+                        barcode: true,
+                    },
+                },
             },
-            orderBy: { timestamp: 'desc' }
+            orderBy: { timestamp: 'desc' },
         });
         res.json(entries);
     } catch (error) {
+        console.error('Error in /entries/simple-logs', error);
         res.status(500).json({ error: error.message });
     }
 });
+
 app.get('/entries/stats', authenticateToken, requireRole('ADMIN'), async (req, res) => {
     try {
         const totalEntries = await prisma.entry.count();
