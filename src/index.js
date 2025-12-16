@@ -191,18 +191,68 @@ app.post('/mark-entry', authenticateToken, async (req, res) => {
     try {
         const { barcode, venue } = req.body;
         if (!barcode || !venue) return res.status(400).json({ error: 'Barcode and venue are required' });
+
         const participant = await prisma.participant.findUnique({ where: { barcode } });
         if (!participant) return res.status(404).json({ error: 'Invalid barcode. Participant not found.' });
+
         const existingEntry = await prisma.entry.findFirst({ where: { participantId: participant.id, venue } });
-        if (existingEntry) return res.status(400).json({ error: 'Entry already marked for this venue', timestamp: existingEntry.timestamp });
+        if (existingEntry) {
+            // also send history when already marked
+            const history = await prisma.entry.findMany({
+                where: { participantId: participant.id },
+                orderBy: { timestamp: 'desc' },
+            });
+
+            return res.status(400).json({
+                error: 'Entry already marked for this venue',
+                timestamp: existingEntry.timestamp,
+                participant: {
+                    name: participant.name,
+                    email: participant.email,
+                    referenceNo: participant.referenceNo,
+                    barcode: participant.barcode,
+                },
+                history: history.map(e => ({
+                    id: e.id,
+                    venue: e.venue,
+                    timestamp: e.timestamp,
+                })),
+            });
+        }
+
         const entry = await prisma.entry.create({
             data: { participantId: participant.id, venue, staffId: req.user.staffId }
         });
-        res.json({ success: true, message: 'Entry marked successfully', participant: { name: participant.name, email: participant.email, referenceNo: participant.referenceNo }, entry: { venue: entry.venue, timestamp: entry.timestamp } });
+
+        const history = await prisma.entry.findMany({
+            where: { participantId: participant.id },
+            orderBy: { timestamp: 'desc' },
+        });
+
+        res.json({
+            success: true,
+            message: 'Entry marked successfully',
+            participant: {
+                name: participant.name,
+                email: participant.email,
+                referenceNo: participant.referenceNo,
+                barcode: participant.barcode,
+            },
+            entry: {
+                venue: entry.venue,
+                timestamp: entry.timestamp,
+            },
+            history: history.map(e => ({
+                id: e.id,
+                venue: e.venue,
+                timestamp: e.timestamp,
+            })),
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
+
 app.get('/entries/:barcode', authenticateToken, async (req, res) => {
     try {
         const { barcode } = req.params;
