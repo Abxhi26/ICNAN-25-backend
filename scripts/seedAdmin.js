@@ -23,8 +23,6 @@ async function main() {
 
     // ---- Existing coordinator ----
     await upsertStaff('STAFF01', 'Staff User', 'coordinator@conference.com', 'staffpassword', 'COORDINATOR');
-
-    // ---- New staff users (role = COORDINATOR) ----
     await upsertStaff('STAFF02', 'Staff User', 'archaajesh.k2023@vitstudent.ac.in', 'archaajesh.k2023', 'COORDINATOR');
     await upsertStaff('STAFF03', 'Staff User', 'narayan.h2023@vitstudent.ac.in', 'narayan.h2023', 'COORDINATOR');
     await upsertStaff('STAFF04', 'Staff User', 'lisateresa.abraham2023@vitstudent.ac.in', 'lisateresa.abraham2023', 'COORDINATOR');
